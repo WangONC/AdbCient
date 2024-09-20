@@ -1,6 +1,9 @@
 // http://aospxref.com/android-13.0.0_r3/raw/packages/modules/adb/file_sync_protocol.h
 #pragma once
 #include <cstdint>
+//#include <winerror.h>
+//#include <Winbase.h>
+//#include<Windows.h>
 
 #define MKID(a, b, c, d) ((a) | ((b) << 8) | ((c) << 16) | ((d) << 24))
 
@@ -128,3 +131,86 @@ union syncmsg {
 };
 
 #define SYNC_DATA_MAX (64 * 1024)
+
+//static uint32_t windows_attributes_to_mode(DWORD attrs, const char* path) {
+//    uint32_t mode = 0;
+//
+//    if (attrs & FILE_ATTRIBUTE_DIRECTORY)
+//        mode |= S_IFDIR;
+//    else
+//        mode |= S_IFREG;
+//
+//    // 设置基本权限
+//    mode |= S_IRUSR | S_IRGRP | S_IROTH;
+//
+//    if (!(attrs & FILE_ATTRIBUTE_READONLY))
+//        mode |= S_IWUSR | S_IWGRP | S_IWOTH;
+//
+//    // 检查文件扩展名来判断是否可执行
+//    const char* ext = strrchr(path, '.');
+//    if (ext && (_stricmp(ext, ".exe") == 0 || _stricmp(ext, ".bat") == 0 || _stricmp(ext, ".cmd") == 0)) {
+//        mode |= S_IXUSR | S_IXGRP | S_IXOTH;
+//    }
+//
+//    // 目录总是有执行权限
+//    if (attrs & FILE_ATTRIBUTE_DIRECTORY)
+//        mode |= S_IXUSR | S_IXGRP | S_IXOTH;
+//
+//    return mode;
+//}
+//
+//int adb_stat(const char* path, struct adb_stat* s) {
+//    WIN32_FILE_ATTRIBUTE_DATA fileInfo;
+//    if (!GetFileAttributesExA(path, GetFileExInfoStandard, &fileInfo)) {
+//        switch (GetLastError()) {
+//        case ERROR_FILE_NOT_FOUND:
+//        case ERROR_PATH_NOT_FOUND:
+//            errno = ENOENT;
+//            break;
+//        case ERROR_ACCESS_DENIED:
+//            errno = EACCES;
+//            break;
+//        default:
+//            errno = EIO;
+//        }
+//        return -1;
+//    }
+//
+//    HANDLE hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+//    if (hFile == INVALID_HANDLE_VALUE) {
+//        errno = EACCES;
+//        return -1;
+//    }
+//
+//    BY_HANDLE_FILE_INFORMATION fileInformation;
+//    if (!GetFileInformationByHandle(hFile, &fileInformation)) {
+//        CloseHandle(hFile);
+//        errno = EIO;
+//        return -1;
+//    }
+//
+//    s->st_dev = fileInformation.dwVolumeSerialNumber;
+//    s->st_ino = (static_cast<uint64_t>(fileInformation.nFileIndexHigh) << 32) | fileInformation.nFileIndexLow;
+//    s->st_mode = windows_attributes_to_mode(fileInfo.dwFileAttributes, path);
+//    s->st_nlink = fileInformation.nNumberOfLinks;
+//    s->st_uid = 0;
+//    s->st_gid = 0;
+//    s->st_size = (static_cast<uint64_t>(fileInfo.nFileSizeHigh) << 32) | fileInfo.nFileSizeLow;
+//
+//    // 转换时间
+//    ULARGE_INTEGER uli;
+//    uli.LowPart = fileInfo.ftLastAccessTime.dwLowDateTime;
+//    uli.HighPart = fileInfo.ftLastAccessTime.dwHighDateTime;
+//    s->st_atime = uli.QuadPart / 10000000ULL - 11644473600ULL;
+//
+//    uli.LowPart = fileInfo.ftLastWriteTime.dwLowDateTime;
+//    uli.HighPart = fileInfo.ftLastWriteTime.dwHighDateTime;
+//    s->st_mtime = uli.QuadPart / 10000000ULL - 11644473600ULL;
+//
+//    uli.LowPart = fileInfo.ftCreationTime.dwLowDateTime;
+//    uli.HighPart = fileInfo.ftCreationTime.dwHighDateTime;
+//    s->st_ctime = uli.QuadPart / 10000000ULL - 11644473600ULL;
+//
+//    CloseHandle(hFile);
+//    return 0;
+//}

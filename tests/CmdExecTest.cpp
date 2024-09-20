@@ -5,14 +5,16 @@
 #include <vector>
 #include <chrono>
 #include <thread>
-#include "CommandExecution.h"
+#include "CommandExecution/CommandExecution.h"
 
 #include <windows.h>
 #include <setupapi.h>
 #include <iostream>
 #include <string>
 
-#include "AdbClient.h"
+#include "AdbClient/AdbClient.h"
+#include <Misc/SystemUtils.h>
+
 
 #pragma comment(lib, "setupapi.lib")
 
@@ -217,6 +219,18 @@ void measure_execution_time(Func&& func) {
 }
 
 int main() {
+#if defined(_FILE_OFFSET_BITS) && (_FILE_OFFSET_BITS == 64)
+#ifdef _USE_32BIT_TIME_T
+#define wstat _wstat32i64
+#else
+#define wstat _wstat64
+#endif
+#else
+#endif
+    struct _stat buf;
+    _wstat(L"D:\\Environment\\llvm-mingw\\bin\\你好.ps1", &buf);
+    struct adb_stat abuf;
+    adb_stat("D:\\Environment\\llvm-mingw\\bin\\你好.ps1", &abuf);
 
     TestSyncSingleCommand();
 
@@ -287,6 +301,7 @@ int main() {
     //bool b = adb.startAdbServer();
     //adb.stopAdbServer();
     std::string result, error;
+    adb.adb_push({ "/123" }, "/data/local/tmp/", error);
     adb.adb_query("shell,raw:cd /data/local/tmp");
     adb.adb_query("shell,raw:ls", &result, &error, true);
     std::vector<std::string> cmds = { "echo 'Simple command'",

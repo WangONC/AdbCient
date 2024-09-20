@@ -1,6 +1,8 @@
 <Project>
     <PropertyGroup>
       <LLVMInstallDir>D:\Environment\llvm</LLVMInstallDir>
-      <LLVMToolsVersion>18.1.8</LLVMToolsVersion>
+		<LLVMToolsVersion>18.1.8</LLVMToolsVersion>
+		<!--<LLVMInstallDir>D:\Environment\llvm-mingw</LLVMInstallDir>-->
+		<!--<LLVMToolsVersion>19.1.0</LLVMToolsVersion>-->
     </PropertyGroup>
   </Project>

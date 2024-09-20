@@ -1,4 +1,5 @@
-#include "ShellProtocol.h"
+#include "AdbClient/ShellProtocol.h"
+#include "AdbClient/adb_io.h"
 
 
 ShellProtocol::ShellProtocol(SOCKET fd) : fd_(fd) {
@@ -11,7 +12,7 @@ ShellProtocol::~ShellProtocol() {
 bool ShellProtocol::Read() {
     // Only read a new header if we've finished the last packet.
     if (!bytes_left_) {
-        if (!AdbClient::ReadFdExactly(fd_, buffer_, kHeaderSize)) {
+        if (!ReadFdExactly(fd_, buffer_, kHeaderSize)) {
             return false;
         }
 
@@ -21,7 +22,7 @@ bool ShellProtocol::Read() {
         data_length_ = 0;
     }
     size_t read_length = ((bytes_left_ < data_capacity()) ? bytes_left_ : data_capacity());
-    if (read_length && !AdbClient::ReadFdExactly(fd_, data(), read_length)) {
+    if (read_length && !ReadFdExactly(fd_, data(), read_length)) {
         return false;
     }
 
@@ -36,5 +37,5 @@ bool ShellProtocol::Write(Id id, size_t length) {
     length_t typed_length = length;
     memcpy(&buffer_[1], &typed_length, sizeof(typed_length));
 
-    return AdbClient::WriteFdExactly(fd_, buffer_, kHeaderSize + length);
+    return WriteFdExactly(fd_, buffer_, kHeaderSize + length);
 }

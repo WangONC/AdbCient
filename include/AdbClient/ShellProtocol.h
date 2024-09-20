@@ -1,7 +1,8 @@
 #pragma once
 
-#include <stdint.h>
-#include "AdbClient.h"
+//#include <stdint.h>
+#include "AdbClient/client.h"
+//#include "AdbClient.h"
 // http://aospxref.com/android-13.0.0_r3/xref/packages/modules/adb/shell_protocol.h
 
 #define DISALLOW_COPY_AND_ASSIGN(TypeName) \
@@ -83,7 +84,7 @@ private:
     enum {
         // It's OK if MAX_PAYLOAD doesn't match on the sending and receiving
         // end, reading will split larger packets into multiple smaller ones.
-        kBufferSize = MAX_PAYLOAD,
+        kBufferSize = BaseClient::MAX_PAYLOAD,
 
         // Header is 1 byte ID + 4 bytes length.
         kHeaderSize = sizeof(Id) + sizeof(length_t)

@@ -15,30 +15,75 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CmdExecTest.cpp">
+    <ClCompile Include="tests\CmdExecTest.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="CommandExecution.cpp">
+    <ClCompile Include="src\CommandExecution.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="AdbClient.cpp">
+    <ClCompile Include="src\AdbClient\AdbClient.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="ShellProtocol.cpp">
+    <ClCompile Include="src\AdbClient\ShellProtocol.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\AdbClient\file_sync_client.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\AdbClient\adb_io.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\misc\StringUtils.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\misc\SystemUtils.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\AdbClient\AdbUtils.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\AdbClient\client.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\AdbClient\types.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CommandExecution.h">
+    <ClInclude Include="include\CommandExecution\CommandExecution.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="AdbClient.h">
+    <ClInclude Include="include\AdbClient\AdbClient.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="ShellProtocol.h">
+    <ClInclude Include="include\AdbClient\ShellProtocol.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="file_sync_protocol.h">
+    <ClInclude Include="include\AdbClient\file_sync_protocol.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\AdbClient\adb_io.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\misc\StringUtils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\misc\SystemUtils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\AdbClient\AdbUtils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\AdbClient\client.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\AdbClient\file_sync_client.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\AdbClient\compression_utils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\AdbClient\types.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
