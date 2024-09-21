@@ -93,3 +93,29 @@ std::string format_host_command(std::string m_serial, uint64_t* m_transport_id, 
     const char* prefix = "host";
     return StringPrintf("%s:%s", prefix, command);
 }
+
+int errno_from_wire(int wire_error) {
+    switch (wire_error) {
+    case 13: return EACCES;
+    case 17: return EEXIST;
+    case 14: return EFAULT;
+    case 27: return EFBIG;
+    case 4:  return EINTR;
+    case 22: return EINVAL;
+    case 5:  return EIO;
+    case 21: return EISDIR;
+    case 40: return ELOOP;
+    case 24: return EMFILE;
+    case 36: return ENAMETOOLONG;
+    case 23: return ENFILE;
+    case 2:  return ENOENT;
+    case 12: return ENOMEM;
+    case 28: return ENOSPC;
+    case 20: return ENOTDIR;
+    case 75: return EOVERFLOW;
+    case 1:  return EPERM;
+    case 30: return EROFS;
+    case 26: return ETXTBSY;
+    default: return 0; // 默认情况下返回0，表示没有匹配的错误
+    }
+}

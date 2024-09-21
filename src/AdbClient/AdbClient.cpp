@@ -194,18 +194,11 @@ void AdbClient::cleanupWsa() {
     }
 }
 
-
-bool AdbClient::adb_push(std::vector<const char*> local_path, const char* remote_path, std::string &error)
+// 向目标设备中push文件，不会有官方adb中的文件名问题
+bool AdbClient::adb_push(std::vector<const char*> local_path, const char* remote_path, bool sync, CompressionType compression, bool dry_run, std::string &error)
 {
-    bool copy_attrs = false;
-    bool sync = false;
-    bool dry_run = false;
-    CompressionType compression = CompressionType::Any;
+    // 目前还有报错编码问题
     return do_sync_push(m_serial, m_transport_id, local_path, remote_path, false, compression, false, &error);
-
-
-   
-    //return false;
 }
 
 

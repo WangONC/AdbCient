@@ -301,7 +301,11 @@ int main() {
     //bool b = adb.startAdbServer();
     //adb.stopAdbServer();
     std::string result, error;
-    adb.adb_push({ "/123" }, "/data/local/tmp/", error);
+    //adb.adb_push({ "/123" }, "/data/local/tmp/", error);
+    std::string p = "D:\\Data\\rePackage\\whatsapp\\whatsapp历史版本\\2241876\\wa_2.24.18.76_64.apk";
+    bool aaa = adb.adb_push({ p.c_str()}, "/data/local/tmp", false, CompressionType::None, false, error);
+    std::cout << "adb push: " << error;
+    return 0;
     adb.adb_query("shell,raw:cd /data/local/tmp");
     adb.adb_query("shell,raw:ls", &result, &error, true);
     std::vector<std::string> cmds = { "echo 'Simple command'",

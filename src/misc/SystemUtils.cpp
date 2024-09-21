@@ -187,7 +187,6 @@ void* mempcpy(void* dest, const void* src, size_t n) {
 // 以后可能要考虑跨平台
 HANDLE open(const char* path, int options,std::string *error) {
 
-    DWORD desiredAccess = 0;
     DWORD shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE;
 
     // CreateFileW is inherently O_CLOEXEC by default.
@@ -195,8 +194,7 @@ HANDLE open(const char* path, int options,std::string *error) {
 
     std::wstring path_wide  = CharToWstring(path);
 
-    HANDLE fh_handle = CreateFileW(path_wide.c_str(), desiredAccess, shareMode, nullptr, OPEN_EXISTING, 0, nullptr);
-
+    HANDLE fh_handle = CreateFileW(path_wide.c_str(), options, shareMode, nullptr, OPEN_EXISTING, 0, nullptr);
     if (fh_handle == INVALID_HANDLE_VALUE) {
         const DWORD err = GetLastError();
         //_fh_close(f);
@@ -204,17 +202,17 @@ HANDLE open(const char* path, int options,std::string *error) {
         *error = StringPrintf("open: could not open '%s': ", path);
         switch (err) {
         case ERROR_FILE_NOT_FOUND:
-            *error = StringPrintf("file not found");
+            *error += "file not found";
             errno = ENOENT;
             return INVALID_HANDLE_VALUE;
 
         case ERROR_PATH_NOT_FOUND:
-            *error = StringPrintf("path not found");
+            *error += "path not found";
             errno = ENOTDIR;
             return INVALID_HANDLE_VALUE;
 
         default:
-            *error = StringPrintf("unknown error: %s", SystemErrorCodeToString(err).c_str());
+            *error += StringPrintf("unknown error: %s", SystemErrorCodeToString(err).c_str());
             errno = ENOENT;
             return INVALID_HANDLE_VALUE;
         }
@@ -227,7 +225,18 @@ int read(HANDLE f, void* buf, int len,std::string *error) {
     DWORD read_bytes;
 
     if (!ReadFile(f, buf, (DWORD)len, &read_bytes, nullptr)) {
-        *error = StringPrintf("read: could not read %d bytes", len);
+        DWORD errorCode = GetLastError();
+        LPSTR messageBuffer = nullptr;
+        size_t size = FormatMessageA(
+            FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL,
+            errorCode,
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            (LPSTR)&messageBuffer,
+            0,
+            NULL
+        );
+        *error = StringPrintf("read: could not read %d bytes, %s", len, messageBuffer);
         errno = EIO;
         return -1;
     }

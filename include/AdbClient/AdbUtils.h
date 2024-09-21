@@ -34,3 +34,4 @@ std::vector<std::string> adb_get_feature(std::string m_serial, uint64_t* m_trans
 bool CanUseFeature(const std::vector<std::string>& feature_set, const std::string& feature);
 std::string ShellServiceString(bool use_shell_protocol, const std::string& type_arg, const std::string& command);
 std::string format_host_command(std::string m_serial, uint64_t* m_transport_id, const char* command);
+int errno_from_wire(int wire_error);

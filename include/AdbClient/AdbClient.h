@@ -3,6 +3,7 @@
 #include "CommandExecution/CommandExecution.h"
 #include <optional>
 #include <cctype>
+#include "AdbClient/file_sync_protocol.h"
 
 // http://aospxref.com/android-14.0.0_r2/xref/packages/modules/adb/adb.h?fi=kCsOffline#kCsOffline
 enum ConnectionState {
@@ -135,7 +136,7 @@ public:
 	int adb_remote_shell(std::vector<std::string> cmds, std::string* result, std::string* error);
 	bool reboot(int mod,std::string* error);
 	
-    bool AdbClient::adb_push(std::vector<const char*> local_path, const char* remote_path, std::string& error); // 这个复杂，先画个饼
+    bool AdbClient::adb_push(std::vector<const char*> local_path, const char* remote_path, bool sync, CompressionType compression, bool dry_run, std::string& error); // 这个复杂，先画个饼
 
 
 	bool adb_query(const std::string& service, std::string* result, std::string* error, bool force_switch_device = false);

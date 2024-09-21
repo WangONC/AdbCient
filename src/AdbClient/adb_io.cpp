@@ -3,6 +3,7 @@
 #include <memory>
 #include <thread>
 #include <misc/StringUtils.h>
+#include <iostream>
 
 // 直接读取数据，不考虑报文格式
 bool ReadFdExactly(SOCKET fd, void* buf, size_t len)

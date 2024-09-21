@@ -18,6 +18,7 @@ typedef __int64 ssize_t;
 #else
 #include <sys/types.h>
 #endif
+#include <iostream>
 
 
 static void ensure_trailing_separators(std::string& local_path, std::string& remote_path) {
@@ -135,7 +136,7 @@ public:
 		req->id = id;
 		req->path_length = path.length();
 		char* data = reinterpret_cast<char*>(req + 1);
-		memcpy(data, path.data(), path.length());
+		memcpy(data, path.data(), path.length()); // 这里复制过去的长度有问题
 		return WriteFdExactly(fd, buf.data(), buf.size());
 	}
 
@@ -175,6 +176,7 @@ public:
 			}
 
 			if (msg.stat_v2.error != 0) {
+				errno = errno_from_wire(msg.stat_v2.error);
 				return false;
 			}
 
@@ -235,12 +237,12 @@ public:
 
 		SyncRequest req;
 		req.id = ID_SEND_V2;
-		req.path_length = path.length();
+		req.path_length = path.length(); // sendv2数据包
 
 		syncmsg msg;
 		msg.send_v2_setup.id = ID_SEND_V2;
 		msg.send_v2_setup.mode = mode;
-		msg.send_v2_setup.flags = 0;
+		msg.send_v2_setup.flags = 0; // sendv2选项，包括mode和flag(压缩方式)
 		switch (compression) {
 		case CompressionType::None:
 			break;
@@ -261,20 +263,20 @@ public:
 			error = "unexpected CompressionType::Any";
 		}
 
-		if (dry_run) {
+		if (dry_run) { // 模拟运行
 			msg.send_v2_setup.flags |= kSyncFlagDryRun;
 		}
 
-		buf.resize(sizeof(SyncRequest) + path.length() + sizeof(msg.send_v2_setup));
+		buf.resize(sizeof(SyncRequest) + path.length() + sizeof(msg.send_v2_setup)); // v2报文缓冲区，消息头、路径长度、消息v2设定
 
 		void* p = buf.data();
 
 		p = mempcpy(p, &req, sizeof(SyncRequest));
 		p = mempcpy(p, path.data(), path.length());
-		p = mempcpy(p, &msg.send_v2_setup, sizeof(msg.send_v2_setup));
+		p = mempcpy(p, &msg.send_v2_setup, sizeof(msg.send_v2_setup)); // 分别写入对应的数据
 
 		
-		return WriteFdExactly(fd, buf.data(), buf.size());
+		return WriteFdExactly(fd, buf.data(), buf.size()); // 发送数据
 	}
 
 	// Sending header, payload, and footer in a single write makes a huge
@@ -282,12 +284,12 @@ public:
 	bool SendSmallFile(const std::string& path, unsigned short mode, const std::string& lpath,
 		const std::string& rpath, unsigned mtime, const char* data,
 		size_t data_length, bool dry_run) {
-		if (dry_run) {
+		if (dry_run) { // 模拟发送？
 			// We need to use send v2 for dry run.
 			return SendLargeFile(path, mode, lpath, rpath, mtime, CompressionType::None, dry_run);
 		}
 
-		std::string path_and_mode = StringPrintf("%s,%d", path.c_str(), mode);
+		std::string path_and_mode = StringPrintf("%s,%d", path.c_str(), mode);// 拼接路径和mode
 		if (path_and_mode.length() > 1024) {
 			error = StringPrintf("SendSmallFile failed: path too long: %zu", path_and_mode.length());
 			errno = ENAMETOOLONG;
@@ -295,31 +297,31 @@ public:
 		}
 
 		std::vector<char> buf(sizeof(SyncRequest) + path_and_mode.length() + sizeof(SyncRequest) +
-			data_length + sizeof(SyncRequest));
+			data_length + sizeof(SyncRequest)); // 创建一个动态缓冲区，同步报文+路径模式+同步报文+数据长度+同步报文
 		char* p = &buf[0];
 
 		SyncRequest* req_send = reinterpret_cast<SyncRequest*>(p);
 		req_send->id = ID_SEND_V1;
-		req_send->path_length = path_and_mode.length();
-		p += sizeof(SyncRequest);
-		memcpy(p, path_and_mode.data(), path_and_mode.size());
+		req_send->path_length = path_and_mode.length(); // sendv1，路径长度
+		p += sizeof(SyncRequest); // 偏移
+		memcpy(p, path_and_mode.data(), path_and_mode.size()); // 写入路径+mode
 		p += path_and_mode.length();
 
 		SyncRequest* req_data = reinterpret_cast<SyncRequest*>(p);
 		req_data->id = ID_DATA;
-		req_data->path_length = data_length;
+		req_data->path_length = data_length; // DATA，数据长度，http://aospxref.com/android-13.0.0_r3/xref/packages/modules/adb/SYNC.TXT
 		p += sizeof(SyncRequest);
-		memcpy(p, data, data_length);
+		memcpy(p, data, data_length); // 写入数据
 		p += data_length;
 
 		SyncRequest* req_done = reinterpret_cast<SyncRequest*>(p);
 		req_done->id = ID_DONE;
-		req_done->path_length = mtime;
+		req_done->path_length = mtime; // 发送完毕，设定修改时间
 		p += sizeof(SyncRequest);
 
 		WriteOrDie(lpath, rpath, &buf[0], (p - &buf[0]));
 
-		RecordFileSent(lpath, rpath);
+		RecordFileSent(lpath, rpath); // 记录一次文件发送，记录了一个延迟确认
 		//RecordBytesTransferred(data_length);
 		//ReportProgress(rpath, data_length, data_length);
 		return true;
@@ -333,39 +335,39 @@ public:
 			return false;
 		}
 
-		if (!HaveSendRecv2()) {
+		if (!HaveSendRecv2()) {// 功能检查
 			return SendLargeFileLegacy(path, mode, lpath, rpath, mtime);
 		}
 
 		compression = ResolveCompressionType(compression);
 
-		if (!SendSend2(path, mode, compression, dry_run)) {
+		if (!SendSend2(path, mode, compression, dry_run)) { // 发送sendv2，和v1的区别就是在路径后添加了设定选项，包括压缩方式和是否模拟执行
 			error = StringPrintf("failed to send ID_SEND_V2 message '%s': %s", path.c_str(), strerror(errno));
 			return false;
 		}
 
 		struct stat st;
-		if (stat(lpath.c_str(), &st) == -1) {
+		if (stat(lpath.c_str(), &st) == -1) { // 获取文件状态
 			error = StringPrintf("cannot stat '%s': %s", lpath.c_str(), strerror(errno));
 			return false;
 		}
 
-		uint64_t total_size = st.st_size;
+		uint64_t total_size = st.st_size; // 文件大小
 		uint64_t bytes_copied = 0;
 
-		HANDLE lfd(open(lpath.c_str(), GENERIC_READ, &error));
+		HANDLE lfd(open(lpath.c_str(), GENERIC_READ, &error)); // 打开文件
 		if (lfd == INVALID_HANDLE_VALUE) {
-			error = StringPrintf("opening '%s' locally failed: %s", lpath.c_str(), strerror(errno));
+			error = StringPrintf("opening '%s' locally failed: %s -- %s", lpath.data(), strerror(errno), error.c_str());
 			return false;
 		}
 
-		syncsendbuf sbuf;
+		syncsendbuf sbuf; // 发送数据
 		sbuf.id = ID_DATA;
 
 		std::variant<std::monostate, NullEncoder, BrotliEncoder, LZ4Encoder, ZstdEncoder>
 			encoder_storage;
 		Encoder* encoder = nullptr;
-		switch (compression) {
+		switch (compression) { // 选择编码器
 		case CompressionType::None:
 			encoder = &encoder_storage.emplace<NullEncoder>(SYNC_DATA_MAX);
 			break;
@@ -388,26 +390,26 @@ public:
 
 		bool sending = true;
 		while (sending) {
-			Block input(SYNC_DATA_MAX);
+			Block input(SYNC_DATA_MAX); // 单片数据大小
 			input.resize(SYNC_DATA_MAX);
-			int r = read(lfd, input.data(), input.size(),&error);
+			int r = read(lfd, input.data(), input.size(),&error); // 读取文件到缓冲区
 			if (r < 0) {
-				error = StringPrintf("reading '%s' locally failed: %s", lpath.c_str(), strerror(errno));
+				error = StringPrintf("reading '%s' locally failed: %s -- %s", lpath.c_str(), strerror(errno), error.c_str());
 				return false;
 			}
 
-			if (r == 0) {
+			if (r == 0) { //如果r是0，读完了
 				encoder->Finish();
 			}
 			else {
-				input.resize(r);
-				encoder->Append(std::move(input));
+				input.resize(r); 
+				encoder->Append(std::move(input)); // 编码器中添加数据
 				//RecordBytesTransferred(r);
 				bytes_copied += r;
 				//ReportProgress(rpath, bytes_copied, total_size);
 			}
 
-			while (true) {
+			while (true) { // 编码，然后发送，所以其实是编码一点发一点，不是完整读取完后一起编码然后再分片
 				Block output;
 				EncodeResult result = encoder->Encode(&output);
 				if (result == EncodeResult::Error) {
@@ -436,28 +438,28 @@ public:
 
 		syncmsg msg;
 		msg.data.id = ID_DONE;
-		msg.data.size = mtime;
-		RecordFileSent(lpath, rpath);
-		return WriteOrDie(lpath, rpath, &msg.data, sizeof(msg.data));
+		msg.data.size = mtime; // 发送消息，完毕
+		RecordFileSent(lpath, rpath); // 记录一个延迟确认
+		return WriteOrDie(lpath, rpath, &msg.data, sizeof(msg.data)); // 写数据
 	}
 
 	bool SendLargeFileLegacy(const std::string& path, unsigned short mode, const std::string& lpath,
 		const std::string& rpath, unsigned mtime) {
 		std::string path_and_mode = StringPrintf("%s,%d", path.c_str(), mode);
-		if (!SendRequest(ID_SEND_V1, path_and_mode)) {
+		if (!SendRequest(ID_SEND_V1, path_and_mode)) { // 这里是使用v1发送大文件，不支持压缩和模拟发送，先发SEND包，路径
 			error = StringPrintf("failed to send ID_SEND_V1 message '%s': %s", path_and_mode.c_str(),
 				strerror(errno));
 			return false;
 		}
 
 		struct stat st;
-		if (stat(lpath.c_str(), &st) == -1) {
+		if (stat(lpath.c_str(), &st) == -1) { // 读取文件状态
 			error = StringPrintf("cannot stat '%s': %s", lpath.c_str(), strerror(errno));
 			return false;
 		}
 
-		uint64_t total_size = st.st_size;
-		uint64_t bytes_copied = 0;
+		uint64_t total_size = st.st_size; // 总大小
+		uint64_t bytes_copied = 0; // 主要用于更新终端显示，没啥用
 
 		HANDLE lfd(open(lpath.c_str(), GENERIC_READ, &error));
 		if (lfd == INVALID_HANDLE_VALUE) {
@@ -478,7 +480,7 @@ public:
 				break;
 			}
 
-			sbuf.size = bytes_read;
+			sbuf.size = bytes_read; // 循环读取数据，分包发送数据，直到结束
 			WriteOrDie(lpath, rpath, &sbuf, sizeof(SyncRequest) + bytes_read);
 
 			//RecordBytesTransferred(bytes_read);
@@ -512,18 +514,18 @@ public:
 		// each logical packet is divided into two writes. If our packet size if conservatively 512
 		// bytes long, this leaves us with space for 128 responses.
 		constexpr size_t max_deferred_acks = 128;
-		auto& buf = acknowledgement_buffer_;
+		auto& buf = acknowledgement_buffer_; // 获取ack缓冲区
 		adb_pollfd pfd = { .fd = fd, .events = POLLIN };
-		while (!deferred_acknowledgements_.empty()) {
-			bool should_block = read_all || deferred_acknowledgements_.size() >= max_deferred_acks;
+		while (!deferred_acknowledgements_.empty()) { // 如果延迟确认缓冲区里有东西
+			bool should_block = read_all || deferred_acknowledgements_.size() >= max_deferred_acks; // 如果强制读完或延迟确认缓冲区中待确认内容大于128，防止adbd的缓冲区满了
 
-			ssize_t rc = adb_poll(&pfd, 1, should_block ? -1 : 0);
+			ssize_t rc = adb_poll(&pfd, 1, should_block ? -1 : 0); // 等待有数据可读
 			if (rc == 0) {
 				//CHECK(!should_block);
 				return true;
 			}
 
-			if (acknowledgement_buffer_.size() < sizeof(sync_status)) {
+			if (acknowledgement_buffer_.size() < sizeof(sync_status)) { // 读取同步状态
 				const ssize_t header_bytes_left = sizeof(sync_status) - buf.size();
 				ssize_t rc = recv(fd, buf.end(), header_bytes_left, 0);
 				if (rc <= 0) {
@@ -544,28 +546,28 @@ public:
 			}
 
 			auto* hdr = reinterpret_cast<sync_status*>(buf.data());
-			if (hdr->id == ID_OKAY) {
-				buf.resize(0);
-				if (hdr->msglen != 0) {
-					error = StringPrintf("received ID_OKAY with msg_len (%I32u != 0", hdr->msglen);
+			if (hdr->id == ID_OKAY) { // 返回的是ok
+				buf.resize(0); // 清空缓冲区
+				if (hdr->msglen != 0) { // 返回ok但是消息内容长度不是0是有问题的
+					error = StringPrintf("received ID_OKAY with msg_len (%I32u) != 0", hdr->msglen);
 					return false;
 				}
-				CopyDone();
+				CopyDone(); // 清空一个延迟确认，用队列先进先出
 				continue;
 			}
-			else if (hdr->id != ID_FAIL) {
+			else if (hdr->id != ID_FAIL) { // 不是成功也不是失败，异常id
 				error = StringPrintf("unexpected response from daemon: id = %#I32x", hdr->id);
 				return false;
 			}
-			else if (hdr->msglen > SYNC_DATA_MAX) {
+			else if (hdr->msglen > SYNC_DATA_MAX) { // 错误消息长度逼一个数据包长
 				error = StringPrintf("too-long message length from daemon: msglen = %I32u", hdr->msglen);
 				return false;
 			}
 
-			const ssize_t msg_bytes_left = hdr->msglen + sizeof(sync_status) - buf.size();
+			const ssize_t msg_bytes_left = hdr->msglen + sizeof(sync_status) - buf.size(); // 剩余的需要读取的数据（消息长度+消息头长度-已经读取的长度）
 			//CHECK_GE(msg_bytes_left, 0);
 			if (msg_bytes_left > 0) {
-				ssize_t rc = recv(fd, buf.end(), msg_bytes_left, 0);
+				ssize_t rc = recv(fd, buf.end(), msg_bytes_left, 0); // 读剩下的
 				if (rc <= 0) {
 					error = "failed to read copy failure message";
 					return false;
@@ -581,12 +583,12 @@ public:
 					}
 				}
 
-				std::string msg(buf.begin() + sizeof(sync_status), buf.end());
-				ReportDeferredCopyFailure(msg);
+				std::string msg(buf.begin() + sizeof(sync_status), buf.end()); // 消息
+				ReportDeferredCopyFailure(msg); // 拼接报错信息（原始adb里面是打印），pop一个延迟确认
 				buf.resize(0);
-				return false;
+				return false; // 读到报错就返回
 			}
-		}
+		} // 否则回一直读光延迟确认的队列
 
 		return true;
 	}
@@ -620,8 +622,8 @@ private:
 
 	bool WriteOrDie(const std::string& from, const std::string& to, const void* data,
 		size_t data_length) {
-		if (!WriteFdExactly(fd, data, data_length)) {
-			if (errno == ECONNRESET) {
+		if (!WriteFdExactly(fd, data, data_length)) { // 写入数据
+			if (errno == ECONNRESET) { // 如果写入失败则尝试看原因
 				// Assume adbd told us why it was closing the connection, and
 				// try to read failure reason from adbd.
 				syncmsg msg;
@@ -767,15 +769,15 @@ static bool sync_send(SyncConnection& sc, const std::string& lpath, const std::s
 	bool dry_run) {
 	if (sync) {
 		struct stat st;
-		if (sync_lstat(sc, rpath, &st)) {
-			if (st.st_mtime == static_cast<time_t>(mtime)) {
+		if (sync_lstat(sc, rpath, &st)) {// 发送获取远程路径状态
+			if (st.st_mtime == static_cast<time_t>(mtime)) {// 如果能获取到并且修改时间和本地相同，就跳过
 				//sc.RecordFilesSkipped(1);
 				return true;
 			}
 		}
 	}
 
-	if (S_ISLNK(mode)) {
+	if (S_ISLNK(mode)) {// 处理软连接，linux下适用
 #if !defined(_WIN32)
 		char buf[PATH_MAX];
 		ssize_t data_length = readlink(lpath.c_str(), buf, PATH_MAX - 1);
@@ -793,13 +795,13 @@ static bool sync_send(SyncConnection& sc, const std::string& lpath, const std::s
 	}
 
 	struct stat st;
-	if (stat(lpath.c_str(), &st) == -1) {
+	if (stat(lpath.c_str(), &st) == -1) { // 检查本地文件状态
 		sc.error = StringPrintf("failed to stat local file '%s': %s", lpath.c_str(), strerror(errno));
 		return false;
 	}
-	if (st.st_size < SYNC_DATA_MAX) {
+	if (st.st_size < SYNC_DATA_MAX) { // 如果是小文件走发送小文件逻辑（64*1024，64kb）
 		std::string data;
-		if (!ReadFileToString(lpath, &data, true, &sc.error)) {
+		if (!ReadFileToString(lpath, &data, true, &sc.error)) { // 把文件内容读到字符串中
 			sc.error = StringPrintf("failed to read all of '%s': %s", lpath.c_str(), strerror(errno));
 			return false;
 		}
@@ -808,7 +810,7 @@ static bool sync_send(SyncConnection& sc, const std::string& lpath, const std::s
 			return false;
 		}
 	}
-	else {
+	else {//大于等于64kb的文件走大文件传输
 		if (!sc.SendLargeFile(rpath, mode, lpath, rpath, mtime, compression, dry_run)) {
 			return false;
 		}
@@ -855,7 +857,7 @@ static bool copy_local_dir_remote(std::string m_serial, uint64_t* m_transport_id
 		std::string cmd = "mkdir";
 		for (const auto& dir : directory_list) {
 			std::string escaped_path = escape_arg(dir); // 转换适用于目录的字符串
-			if (escaped_path.size() > 16384) {
+			if (escaped_path.size() > 16384) { // 限制目录长度
 				// Somewhat arbitrarily limit that probably won't ever happen.
 				sc.error = StringPrintf("path too long: %s", escaped_path.c_str());
 				return false;
@@ -863,9 +865,9 @@ static bool copy_local_dir_remote(std::string m_serial, uint64_t* m_transport_id
 
 			// The maximum should be 64kiB, but that's not including other stuff that gets tacked
 			// onto the command line, so let's be a bit conservative.
-			if (cmd.size() + escaped_path.size() > 32768) { // 单条命令执行，创建文件夹
+			if (cmd.size() + escaped_path.size() > 32768) { 
 				// Dispatch the command, ignoring failure (since the directory might already exist).
-				BaseClient::send_shell_command(m_serial, m_transport_id, cmd, false, r, e);
+				BaseClient::send_shell_command(m_serial, m_transport_id, cmd, false, r, e); // 单条命令执行，创建文件夹
 				cmd = "mkdir";
 			}
 			cmd += " ";
@@ -877,7 +879,7 @@ static bool copy_local_dir_remote(std::string m_serial, uint64_t* m_transport_id
 		}
 	}
 
-	if (check_timestamps) {
+	if (check_timestamps) {// 是否检查时间戳
 		for (const copyinfo& ci : file_list) {
 			if (!sc.SendLstat(ci.rpath)) {
 				sc.error = StringPrintf("failed to send lstat");
@@ -896,14 +898,14 @@ static bool copy_local_dir_remote(std::string m_serial, uint64_t* m_transport_id
 
 	//sc.ComputeExpectedTotalBytes(file_list); // 用于处理传输进度
 
-	for (const copyinfo& ci : file_list) {
+	for (const copyinfo& ci : file_list) {// 遍历文件列表
 		if (!ci.skip) {
 			if (list_only) {
 				//sc.Println("would push: %s -> %s", ci.lpath.c_str(), ci.rpath.c_str());
 			}
 			else {
 				if (!sync_send(sc, ci.lpath, ci.rpath, ci.time, ci.mode, false, compression,
-					dry_run)) {
+					dry_run)) { // 单个小文件发送，不需要进行分片，单个数据包数据载荷最大64kb，大文件需要走大文件分片发送
 					return false;
 				}
 			}
@@ -914,7 +916,7 @@ static bool copy_local_dir_remote(std::string m_serial, uint64_t* m_transport_id
 	}
 
 	//sc.RecordFilesSkipped(skipped);
-	bool success = sc.ReadAcknowledgements(true);
+	bool success = sc.ReadAcknowledgements(true); // 读取延迟确认中的消息，如果有失败消息直接返回，否则读光
 	//sc.ReportTransferRate(lpath, TransferDirection::push);
 	return success;
 }
@@ -988,32 +990,33 @@ bool do_sync_push(std::string m_serial, uint64_t* m_transport_id, const std::vec
 				}
 				dst_dir.append(Basename(src_path)); // 添加为目标路径的子目录 
 			}
-
+			// 发送内容
 			success &=
-				copy_local_dir_remote(m_serial,m_transport_id,sc, src_path, dst_dir, sync, false, compression, dry_run);
+				copy_local_dir_remote(m_serial,m_transport_id,sc, std::string(src_path), std::string(dst_dir), sync, false, compression, dry_run);
 			continue;
-		}
+		} // 跳过软连接和其他文件，软连接上面没处理过了
 		else if (!(S_ISREG(st.st_mode) || S_ISLNK(st.st_mode))) {
 			//sc.Warning("skipping special file '%s' (mode = 0o%o)", src_path, st.st_mode);
 			continue;
 		}
 
 		std::string path_holder;
-		if (dst_isdir) {
+		if (dst_isdir) { // 给定的目标地址是一个目录
 			// If we're copying a local file to a remote directory,
 			// we really want to copy to remote_dir + "/" + local_filename.
 			path_holder = dst_path;
 			if (path_holder.back() != '/') {
 				path_holder.push_back('/');
 			}
-			path_holder += Basename(src_path);
-			dst_path = path_holder.c_str();
+			path_holder += Basename(src_path); // 构建最终地址，这个函数可以正确获取文件名，并不会导致目标文件名不全,原始adb中可能是这个函数不正确导致的目录文件名有问题
+			dst_path = path_holder.c_str(); // 重新构建目标目录路径
 		}
 
-		success &= sync_send(sc, src_path, dst_path, st.st_mtime, st.st_mode, sync, compression,
-			dry_run);
+		success &= sync_send(sc, std::string(src_path), std::string(dst_path), st.st_mtime, st.st_mode, sync, compression,
+			dry_run); // 发送文件
 	}
 
 	success &= sc.ReadAcknowledgements(true);
+	*error = sc.error;
 	return success;
 }
